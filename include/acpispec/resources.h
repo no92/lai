@@ -27,6 +27,14 @@
 #define ACPI_IRQ_NO_WAKE        0x00
 #define ACPI_IRQ_WAKE            0x20
 
+// I2C flags
+#define ACPI_I2C_PRODUCER 0x00
+#define ACPI_I2C_CONSUMER 0x01
+#define ACPI_I2C_SLAVE 0x00
+#define ACPI_I2C_MASTER 0x01
+#define ACPI_I2C_ADDR_7_BIT 0x07
+#define ACPI_I2C_ADDR_10_BIT 0x0A
+
 typedef struct acpi_resource_t
 {
     uint8_t type;

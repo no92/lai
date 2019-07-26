@@ -18,6 +18,7 @@ enum lai_resource_type {
     LAI_RESOURCE_MEM,
     LAI_RESOURCE_VENDOR,
     LAI_RESOURCE_REGISTER,
+    LAI_RESOURCE_I2C
 };
 
 struct lai_resource_view {
@@ -41,6 +42,12 @@ struct lai_resource_view {
 #define LAI_RESOURCE_VIEW_INITIALIZER(crs) {.entry = lai_exec_buffer_access(crs), .skip_size = 0, .entry_idx = 0, .crs_var = crs, .base = 0, .length = 0, .flags = 0, .address_space = 0, .bit_width = 0, .bit_offset = 0, .gsi = 0}
 
 lai_api_error_t lai_resource_iterate(struct lai_resource_view *);
+
+uint32_t lai_resource_get_i2c_speed(struct lai_resource_view *view);
+uint8_t lai_resource_get_i2c_mode(struct lai_resource_view *view);
+uint8_t lai_resource_get_i2c_producer(struct lai_resource_view *view);
+uint8_t lai_resource_get_i2c_slave(struct lai_resource_view *view);
+uint16_t lai_resource_get_i2c_bus_addr(struct lai_resource_view *view);
 
 enum lai_resource_type lai_resource_get_type(struct lai_resource_view *);
 lai_api_error_t lai_resource_next_irq(struct lai_resource_view *iterator);

@@ -24,6 +24,7 @@
 #define ACPI_LARGE_MEM32           0x85
 #define ACPI_LARGE_FIXED_MEM32     0x86
 #define ACPI_LARGE_IRQ             0x89
+#define ACPI_LARGE_I2C             0x8E
 
 // read a device's resource info
 size_t lai_read_resource(lai_nsnode_t *device, acpi_resource_t *dest) {
@@ -134,7 +135,7 @@ static struct lai_resource_header_info lai_get_header_info(uint8_t* header_byte)
     if(!(header_byte[0] & (1 << 7))){ // Small
         info.type = (header_byte[0] >> 3) & 0xF;
         info.size = (header_byte[0] & 0x7);
-        info.skip_size = info.size + 1;    
+        info.skip_size = info.size + 1;
     } else { // Large
         info.type = header_byte[0];
         info.size = header_byte[1] | (header_byte[2] << 8);
@@ -192,13 +193,86 @@ lai_api_error_t lai_resource_iterate(struct lai_resource_view *iterator){
             iterator->length = (entry[8] | (entry[9] << 8) | (entry[10] << 16) | (entry[11] << 24));
             iterator->skip_size = info.skip_size;
             return LAI_ERROR_NONE;
+        case ACPI_LARGE_I2C:
+            iterator->skip_size = info.skip_size;
+            return LAI_ERROR_NONE;
         default:
             lai_debug("undefined resource, type is %02X, ignoring...", info.type);
             iterator->skip_size = info.skip_size;
             return LAI_ERROR_NONE;
     }
 
-    return LAI_ERROR_UNEXPECTED_RESULT;    
+    return LAI_ERROR_UNEXPECTED_RESULT;
+}
+
+uint32_t lai_resource_get_i2c_speed(struct lai_resource_view *view) {
+    LAI_ENSURE(view);
+    LAI_ENSURE(view->entry);
+
+    struct lai_resource_header_info info = lai_get_header_info(view->entry);
+    uint8_t *e = view->entry;
+
+    if(info.type != ACPI_LARGE_I2C) {
+        return ~0;
+    }
+
+    return e[12] | (e[13] << 8) | (e[14] << 16) | (e[15] << 24);
+}
+
+uint8_t lai_resource_get_i2c_mode(struct lai_resource_view *view) {
+    LAI_ENSURE(view);
+    LAI_ENSURE(view->entry);
+
+    struct lai_resource_header_info info = lai_get_header_info(view->entry);
+    uint8_t *e = view->entry;
+
+    if(info.type != ACPI_LARGE_I2C) {
+        return ~0;
+    }
+
+    return (e[7] & 1) ? ACPI_I2C_ADDR_10_BIT : ACPI_I2C_ADDR_7_BIT;
+}
+
+uint8_t lai_resource_get_i2c_producer(struct lai_resource_view *view) {
+    LAI_ENSURE(view);
+    LAI_ENSURE(view->entry);
+
+    struct lai_resource_header_info info = lai_get_header_info(view->entry);
+    uint8_t *e = view->entry;
+
+    if(info.type != ACPI_LARGE_I2C) {
+        return ~0;
+    }
+
+    return (e[6] & 2) ? ACPI_I2C_CONSUMER : ACPI_I2C_PRODUCER;
+}
+
+uint8_t lai_resource_get_i2c_slave(struct lai_resource_view *view) {
+    LAI_ENSURE(view);
+    LAI_ENSURE(view->entry);
+
+    struct lai_resource_header_info info = lai_get_header_info(view->entry);
+    uint8_t *e = view->entry;
+
+    if(info.type != ACPI_LARGE_I2C) {
+        return ~0;
+    }
+
+    return (e[6] & 1) ? ACPI_I2C_MASTER : ACPI_I2C_SLAVE;
+}
+
+uint16_t lai_resource_get_i2c_bus_addr(struct lai_resource_view *view) {
+    LAI_ENSURE(view);
+    LAI_ENSURE(view->entry);
+
+    struct lai_resource_header_info info = lai_get_header_info(view->entry);
+    uint8_t *e = view->entry;
+
+    if(info.type != ACPI_LARGE_I2C) {
+        return ~0;
+    }
+
+    return e[16] | (e[17] << 8);
 }
 
 enum lai_resource_type lai_resource_get_type(struct lai_resource_view *iterator){
@@ -232,10 +306,12 @@ enum lai_resource_type lai_resource_get_type(struct lai_resource_view *iterator)
             return LAI_RESOURCE_MEM;
         case ACPI_LARGE_IRQ:
             return LAI_RESOURCE_IRQ;
+        case ACPI_LARGE_I2C:
+            return LAI_RESOURCE_I2C;
         default:
             lai_debug("Unknown resource type %02X in lai_resource_get_type", info.type);
             return LAI_RESOURCE_NULL;
-    }    
+    }
 }
 
 lai_api_error_t lai_resource_next_irq(struct lai_resource_view *iterator){
@@ -244,7 +320,6 @@ lai_api_error_t lai_resource_next_irq(struct lai_resource_view *iterator){
     uint8_t *entry = iterator->entry;
 
     struct lai_resource_header_info info = lai_get_header_info(entry);
-    
 
     if(info.type == ACPI_SMALL_IRQ) {
         uint8_t irq_mask = (entry[1] | (entry[2] << 8));
